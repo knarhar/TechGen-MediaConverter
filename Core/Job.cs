@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Diagnostics;
 
 namespace Core
 {
@@ -25,6 +25,7 @@ namespace Core
         public JobOptions Options { get; set; }
         public JobStatus Status { get; set; }
         public int ProgressPercent { get; set; }
+        public Process? WorkerProcess { get; set; }
 
         public Job(string input, string output, JobOptions options)
         {
