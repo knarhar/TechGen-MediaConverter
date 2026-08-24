@@ -72,7 +72,7 @@ namespace MenuApp
             Console.Write("Output path: ");
             string output = Console.ReadLine() ?? "";
 
-            Console.Write("Options/notes: ");
+            Console.Write("Options/notes (optional, press Enter to skip): ");
             string notes = Console.ReadLine() ?? "";
 
             var job = new Job(input, output, new JobOptions { Notes = notes });
@@ -114,7 +114,7 @@ namespace MenuApp
             foreach (var job in _jobs)
             {
                 Console.WriteLine(
-                    $"[{job.Id}] {job.InputPath} -> {job.OutputPath} | {job.Status} | {job.ProgressPercent}%");
+                    $"[{job.Id}] {job.InputPath} -> {job.OutputPath} | {job.Status} | {job.ProgressPercent}% | Notes: {job.Options.Notes}");
             }
         }
 
