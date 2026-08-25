@@ -148,10 +148,59 @@ namespace MenuApp
 
         private void HandleCancelOne()
         {
-            // TODO: wire up real cancel logic (queued vs running)
-            Console.Write("Job id to cancel: ");
-            string? idInput = Console.ReadLine();
-            ConsoleTheme.Warning($"Cancel requested for job {idInput} (not implemented yet).");
+            var jobs = _queue.Snapshot();
+
+            if (jobs.Count == 0)
+            {
+                ConsoleTheme.Muted("No jobs yet.");
+                return;
+            }
+
+            HandleList();
+            Console.WriteLine();
+            Console.Write("Job id to cancel (full id or first characters): ");
+
+            string raw = (Console.ReadLine() ?? "").Trim();
+
+            if (raw.Length == 0)
+            {
+                ConsoleTheme.Error("No id entered.");
+                return;
+            }
+
+            var matches = jobs
+                .Where(j => j.Id.ToString().StartsWith(raw, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matches.Count == 0)
+            {
+                ConsoleTheme.Error($"No job matches \"{raw}\".");
+                return;
+            }
+
+            if (matches.Count > 1)
+            {
+                ConsoleTheme.Error($"\"{raw}\" matches {matches.Count} jobs, type more characters.");
+                return;
+            }
+
+            var job = matches[0];
+
+            switch (_queue.CancelJob(job.Id))
+            {
+                case CancelResult.CanceledQueued:
+                    ConsoleTheme.Success($"Job {job.Id} canceled before it started.");
+                    break;
+                case CancelResult.CanceledRunning:
+                    ConsoleTheme.Success($"Job {job.Id} was running - worker process killed.");
+                    break;
+                case CancelResult.AlreadyFinished:
+                    ConsoleTheme.Warning($"Job {job.Id} already finished ({job.Status}).");
+                    break;
+                case CancelResult.NotFound:
+                    ConsoleTheme.Error($"Job {job.Id} not found.");
+                    break;
+            }
         }
 
         private void HandleCancelAll()

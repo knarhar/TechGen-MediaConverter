@@ -45,6 +45,53 @@ namespace Core
             }
         }
 
+        public CancelResult CancelJob(Guid id)
+        {
+            Process? processToKill;
+
+            lock (_lock)
+            {
+                var job = _allJobs.FirstOrDefault(j => j.Id == id);
+
+                if (job == null)
+                    return CancelResult.NotFound;
+
+                if (job.Status == JobStatus.QUEUED)
+                {
+                    job.Status = JobStatus.CANCELED;
+                    Monitor.PulseAll(_lock);
+                    return CancelResult.CanceledQueued;
+                }
+
+                if (job.Status != JobStatus.RUNNING)
+                    return CancelResult.AlreadyFinished;
+
+                job.Status = JobStatus.CANCELED;
+                processToKill = job.WorkerProcess;
+            }
+
+            KillProcess(processToKill);
+            return CancelResult.CanceledRunning;
+        }
+
+        private static void KillProcess(Process? process)
+        {
+            if (process == null)
+                return;
+
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
+        }
+
         public void Start()
         {
             lock (_lock)
@@ -123,10 +170,13 @@ namespace Core
 
         private void RunJob(Job job)
         {
-            if (job.Status == JobStatus.CANCELED)
-                return;
+            lock (_lock)
+            {
+                if (job.Status == JobStatus.CANCELED)
+                    return;
 
-            job.Status = JobStatus.RUNNING;
+                job.Status = JobStatus.RUNNING;
+            }
 
             var psi = new ProcessStartInfo
             {
@@ -138,23 +188,43 @@ namespace Core
             };
 
             var process = new Process { StartInfo = psi };
-            job.WorkerProcess = process;
 
             try
             {
                 process.Start();
+
+                bool canceledDuringStart;
+
+                lock (_lock)
+                {
+                    job.WorkerProcess = process;
+                    canceledDuringStart = job.Status == JobStatus.CANCELED;
+                }
+
+                if (canceledDuringStart)
+                    KillProcess(process);
+
                 JobStarted?.Invoke(job, process);
 
                 process.WaitForExit();
             }
             catch (Exception ex)
             {
-                job.Status = JobStatus.FAILED;
-                job.Options.Notes = $"{job.Options.Notes} [error: {ex.Message}]";
+                lock (_lock)
+                {
+                    if (job.Status != JobStatus.CANCELED)
+                    {
+                        job.Status = JobStatus.FAILED;
+                        job.Options.Notes = $"{job.Options.Notes} [error: {ex.Message}]";
+                    }
+                }
             }
             finally
             {
-                job.WorkerProcess = null;
+                lock (_lock)
+                {
+                    job.WorkerProcess = null;
+                }
             }
         }
 

@@ -6,8 +6,6 @@ namespace Core
     {
         public static void Parse(Process process, Job job)
         {
-            job.Status = JobStatus.RUNNING;
-
             while (!process.StandardOutput.EndOfStream)
             {
                 string? line = process.StandardOutput.ReadLine();
