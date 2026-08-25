@@ -15,11 +15,12 @@ namespace Core
         {
             if (_queue.Snapshot().Count == 0)
             {
-                Console.WriteLine("No jobs to monitor yet.");
+                ConsoleTheme.Muted("No jobs to monitor yet.");
+                Console.WriteLine();
+                ConsoleTheme.Muted("Press any key to return to the menu...");
+                Console.ReadKey(intercept: true);
                 return;
             }
-
-            Console.WriteLine("(press any key to return to the menu)");
 
             while (true)
             {
@@ -32,8 +33,14 @@ namespace Core
                 var jobs = _queue.Snapshot();
 
                 Console.Clear();
+                ConsoleTheme.Header("=== Live Monitor ===");
+                Console.WriteLine();
+
                 foreach (var job in jobs)
                     PrintJob(job);
+
+                Console.WriteLine();
+                ConsoleTheme.Muted("Press any key to return to the menu...");
 
                 bool allFinished = jobs.All(job =>
                     job.Status is JobStatus.COMPLETED or JobStatus.FAILED or JobStatus.CANCELED);
@@ -44,7 +51,8 @@ namespace Core
                 Thread.Sleep(_refreshMs);
             }
 
-            Console.WriteLine("All jobs finished. Press any key to return to the menu.");
+            Console.WriteLine();
+            ConsoleTheme.Success("All jobs finished. Press any key to return to the menu.");
             Console.ReadKey(intercept: true);
         }
 
@@ -55,12 +63,18 @@ namespace Core
             int completed = job.ProgressPercent * barLength / 100;
             int remaining = barLength - completed;
 
-            string progressBar =
-                new string('#', completed) +
-                new string('-', remaining);
+            var color = ConsoleTheme.ColorFor(job.Status);
 
-            Console.WriteLine(
-                $"{job.Id} | {job.Status,-10} | [{progressBar}] {job.ProgressPercent}%");
+            ConsoleTheme.Write($"  {job.Status,-10}", color);
+
+            Console.Write(" [");
+            ConsoleTheme.Write(new string('#', completed), color);
+            ConsoleTheme.Write(new string('-', remaining), ConsoleColor.DarkGray);
+            Console.Write("] ");
+
+            ConsoleTheme.Write($"{job.ProgressPercent,3}%", color);
+
+            Console.WriteLine($"  {job.InputPath} -> {job.OutputPath}");
         }
     }
 }

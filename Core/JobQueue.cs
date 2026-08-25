@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 
 namespace Core
 {
@@ -139,17 +140,29 @@ namespace Core
             var process = new Process { StartInfo = psi };
             job.WorkerProcess = process;
 
-            process.Start();
-            JobStarted?.Invoke(job, process);
+            try
+            {
+                process.Start();
+                JobStarted?.Invoke(job, process);
 
-            process.WaitForExit();
-
-            job.WorkerProcess = null;
+                process.WaitForExit();
+            }
+            catch (Exception ex)
+            {
+                job.Status = JobStatus.FAILED;
+                job.Options.Notes = $"{job.Options.Notes} [error: {ex.Message}]";
+            }
+            finally
+            {
+                job.WorkerProcess = null;
+            }
         }
 
         private static string BuildArguments(Job job)
         {
-            return $"\"{job.InputPath}\" \"{job.OutputPath}\" \"{job.Options.Notes}\"";
+            string estimate = job.Options.Estimate.ToString(CultureInfo.InvariantCulture);
+
+            return $"\"{job.InputPath}\" \"{job.OutputPath}\" \"{job.Options.Notes}\" \"{estimate}\"";
         }
     }
 }
