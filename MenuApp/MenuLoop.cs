@@ -5,7 +5,6 @@ namespace MenuApp
     public class MenuLoop
     {
         private readonly JobQueue _queue;
-        private readonly List<Job> _jobs = new();
 
         public MenuLoop(JobQueue queue)
         {
@@ -22,25 +21,14 @@ namespace MenuApp
 
                 switch (choice)
                 {
-                    case "1":
-                        HandleAddJob();
-                        break;
-                    case "2":
-                        HandleMonitor();
-                        break;
-                    case "3":
-                        HandleCancelOne();
-                        break;
-                    case "4":
-                        HandleCancelAll();
-                        break;
-                    case "5":
-                        HandleList();
-                        break;
-                    case "6":
-                        HandleWait();
-                        break;
+                    case "1": HandleAddJob(); break;
+                    case "2": HandleMonitor(); break;
+                    case "3": HandleCancelOne(); break;
+                    case "4": HandleCancelAll(); break;
+                    case "5": HandleList(); break;
+                    case "6": HandleWait(); break;
                     case "7":
+                        _queue.Stop();
                         running = false;
                         break;
                     default:
@@ -76,7 +64,6 @@ namespace MenuApp
             string notes = Console.ReadLine() ?? "";
 
             var job = new Job(input, output, new JobOptions { Notes = notes });
-            _jobs.Add(job);
             _queue.AddJob(job);
 
             Console.WriteLine($"Job {job.Id} added and queued.");
@@ -84,14 +71,11 @@ namespace MenuApp
 
         private void HandleMonitor()
         {
-            // TODO: replace with a live-refreshing progress screen
-            Console.WriteLine("-- Monitor (placeholder, showing a snapshot) --");
-            HandleList();
+            new JobMonitor(_queue).Start();
         }
 
         private void HandleCancelOne()
         {
-            // TODO: wire up real cancel logic (queued vs running)
             Console.Write("Job id to cancel: ");
             string? idInput = Console.ReadLine();
             Console.WriteLine($"Cancel requested for job {idInput} (not implemented yet).");
@@ -99,19 +83,20 @@ namespace MenuApp
 
         private void HandleCancelAll()
         {
-            // TODO: wire up real CancelAll logic once cancel branches merge
             Console.WriteLine("Cancel all requested (not implemented yet).");
         }
 
         private void HandleList()
         {
-            if (_jobs.Count == 0)
+            var jobs = _queue.Snapshot();
+
+            if (jobs.Count == 0)
             {
                 Console.WriteLine("No jobs yet.");
                 return;
             }
 
-            foreach (var job in _jobs)
+            foreach (var job in jobs)
             {
                 Console.WriteLine(
                     $"[{job.Id}] {job.InputPath} -> {job.OutputPath} | {job.Status} | {job.ProgressPercent}% | Notes: {job.Options.Notes}");
@@ -120,9 +105,9 @@ namespace MenuApp
 
         private void HandleWait()
         {
-            // Right now JobQueue.RunAll() is synchronous, so there's nothing
-            // to "wait" on yet - this is a placeholder for that behavior.
-            Console.WriteLine("Waiting for jobs... (placeholder - queue currently runs synchronously)");
+            Console.WriteLine("Waiting for all queued/running jobs to finish...");
+            _queue.WaitForIdle();
+            Console.WriteLine("All jobs finished.");
         }
     }
 }

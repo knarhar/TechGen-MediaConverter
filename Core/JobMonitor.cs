@@ -2,34 +2,50 @@ namespace Core
 {
     public class JobMonitor
     {
-        private readonly List<Job> _jobs;
+        private readonly JobQueue _queue;
+        private readonly int _refreshMs;
 
-        public JobMonitor(List<Job> jobs)
+        public JobMonitor(JobQueue queue, int refreshMs = 500)
         {
-            _jobs = jobs;
+            _queue = queue;
+            _refreshMs = refreshMs;
         }
 
         public void Start()
         {
+            if (_queue.Snapshot().Count == 0)
+            {
+                Console.WriteLine("No jobs to monitor yet.");
+                return;
+            }
+
+            Console.WriteLine("(press any key to return to the menu)");
+
             while (true)
             {
-                Console.Clear();
-
-                foreach (var job in _jobs)
+                if (!Console.IsInputRedirected && Console.KeyAvailable)
                 {
-                    PrintJob(job);
+                    Console.ReadKey(intercept: true);
+                    return;
                 }
 
-                bool allFinished = _jobs.All(job =>
-                    job.Status == JobStatus.COMPLETED ||
-                    job.Status == JobStatus.FAILED ||
-                    job.Status == JobStatus.CANCELED);
+                var jobs = _queue.Snapshot();
+
+                Console.Clear();
+                foreach (var job in jobs)
+                    PrintJob(job);
+
+                bool allFinished = jobs.All(job =>
+                    job.Status is JobStatus.COMPLETED or JobStatus.FAILED or JobStatus.CANCELED);
 
                 if (allFinished)
                     break;
 
-                Thread.Sleep(500);
+                Thread.Sleep(_refreshMs);
             }
+
+            Console.WriteLine("All jobs finished. Press any key to return to the menu.");
+            Console.ReadKey(intercept: true);
         }
 
         private static void PrintJob(Job job)
