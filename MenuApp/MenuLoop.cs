@@ -6,6 +6,18 @@ namespace MenuApp
 {
     public class MenuLoop
     {
+        private static readonly MenuCommand[] Commands =
+        {
+            new("1", "Add job", "Queue a new job: input, output, notes and estimate."),
+            new("2", "Monitor progress", "Live progress bars; press any key to return."),
+            new("3", "Cancel one job", "Pick a job with the arrow keys and cancel it."),
+            new("4", "Cancel all jobs", "Cancel every queued and running job, with a confirm."),
+            new("5", "List jobs", "Show every job with status, progress and notes."),
+            new("6", "Wait for jobs to finish", "Block until nothing is queued or running."),
+            new("7", "Exit", "Finish queued jobs, stop the workers and quit."),
+            new("8", "Help", "Show this screen.")
+        };
+
         private readonly JobQueue _queue;
 
         public MenuLoop(JobQueue queue)
@@ -54,6 +66,9 @@ namespace MenuApp
                         running = false;
                         pause = false;
                         break;
+                    case "8":
+                        HandleHelp();
+                        break;
                     default:
                         ConsoleTheme.Error("Unknown option, try again.");
                         break;
@@ -76,13 +91,8 @@ namespace MenuApp
             ConsoleTheme.Header("=== Conversion Manager ===");
             Console.WriteLine();
 
-            PrintOption("1", "Add job");
-            PrintOption("2", "Monitor progress");
-            PrintOption("3", "Cancel one job");
-            PrintOption("4", "Cancel all jobs");
-            PrintOption("5", "List jobs");
-            PrintOption("6", "Wait for jobs to finish");
-            PrintOption("7", "Exit");
+            foreach (var command in Commands)
+                PrintOption(command.Key, command.Label);
 
             Console.WriteLine();
             ConsoleTheme.Muted($"queued: {_queue.QueuedCount}   total: {_queue.Snapshot().Count}");
@@ -139,6 +149,20 @@ namespace MenuApp
                 }
 
                 ConsoleTheme.Error("Enter a positive number of seconds.");
+            }
+        }
+
+        private static void HandleHelp()
+        {
+            ConsoleTheme.Header("=== Help ===");
+            Console.WriteLine();
+
+            foreach (var command in Commands)
+            {
+                ConsoleTheme.Write($"  {command.Key}) ", ConsoleColor.Cyan);
+                Console.WriteLine(command.Label);
+                ConsoleTheme.Muted($"     {command.Description}");
+                Console.WriteLine();
             }
         }
 
