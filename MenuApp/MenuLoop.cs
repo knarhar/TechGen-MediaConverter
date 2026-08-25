@@ -1,5 +1,6 @@
 using System.Globalization;
 using Core;
+using System.Linq;
 
 namespace MenuApp
 {
@@ -180,8 +181,33 @@ namespace MenuApp
 
         private void HandleCancelAll()
         {
-            // TODO: wire up real CancelAll logic once cancel branches merge
-            ConsoleTheme.Warning("Cancel all requested (not implemented yet).");
+            var jobs = _queue.Snapshot();
+
+            if (jobs.Count == 0)
+            {
+                ConsoleTheme.Muted("No jobs yet.");
+                return;
+            }
+
+            Console.Write($"Cancel all {jobs.Count} job(s)? (y/n): ");
+            string? confirm = Console.ReadLine();
+
+            if (!string.Equals(confirm, "y", StringComparison.OrdinalIgnoreCase))
+            {
+                ConsoleTheme.Muted("Canceled nothing.");
+                return;
+            }
+
+            var results = _queue.CancelAll();
+
+            int queued = results.Count(r => r.Result == CancelResult.CanceledQueued);
+            int running = results.Count(r => r.Result == CancelResult.CanceledRunning);
+            int finished = results.Count(r => r.Result == CancelResult.AlreadyFinished);
+
+            ConsoleTheme.Success($"Canceled {queued} queued and {running} running job(s).");
+
+            if (finished > 0)
+                ConsoleTheme.Muted($"{finished} job(s) were already finished, left untouched.");
         }
 
         private void HandleList()
