@@ -1,11 +1,11 @@
-﻿using Core;
+using System.Globalization;
+using Core;
 
 namespace MenuApp
 {
     public class MenuLoop
     {
         private readonly JobQueue _queue;
-        private readonly List<Job> _jobs = new();
 
         public MenuLoop(JobQueue queue)
         {
@@ -17,8 +17,13 @@ namespace MenuApp
             bool running = true;
             while (running)
             {
+                Console.Clear();
                 PrintMenu();
+
                 string? choice = Console.ReadLine();
+                Console.WriteLine();
+
+                bool pause = true;
 
                 switch (choice)
                 {
@@ -27,6 +32,7 @@ namespace MenuApp
                         break;
                     case "2":
                         HandleMonitor();
+                        pause = false;
                         break;
                     case "3":
                         HandleCancelOne();
@@ -41,27 +47,52 @@ namespace MenuApp
                         HandleWait();
                         break;
                     case "7":
+                        ConsoleTheme.Muted("Finishing queued jobs, please wait...");
+                        _queue.Stop();
+                        ConsoleTheme.Success("Goodbye.");
                         running = false;
+                        pause = false;
                         break;
                     default:
-                        Console.WriteLine("Unknown option, try again.");
+                        ConsoleTheme.Error("Unknown option, try again.");
                         break;
                 }
+
+                if (pause)
+                    Pause();
             }
+        }
+
+        private static void Pause()
+        {
+            Console.WriteLine();
+            ConsoleTheme.Muted("Press any key to return to the menu...");
+            Console.ReadKey(intercept: true);
         }
 
         private void PrintMenu()
         {
+            ConsoleTheme.Header("=== Conversion Manager ===");
             Console.WriteLine();
-            Console.WriteLine("=== Conversion Manager ===");
-            Console.WriteLine("1) Add job");
-            Console.WriteLine("2) Monitor progress");
-            Console.WriteLine("3) Cancel one job");
-            Console.WriteLine("4) Cancel all jobs");
-            Console.WriteLine("5) List jobs");
-            Console.WriteLine("6) Wait for jobs to finish");
-            Console.WriteLine("7) Exit");
+
+            PrintOption("1", "Add job");
+            PrintOption("2", "Monitor progress");
+            PrintOption("3", "Cancel one job");
+            PrintOption("4", "Cancel all jobs");
+            PrintOption("5", "List jobs");
+            PrintOption("6", "Wait for jobs to finish");
+            PrintOption("7", "Exit");
+
+            Console.WriteLine();
+            ConsoleTheme.Muted($"queued: {_queue.QueuedCount}   total: {_queue.Snapshot().Count}");
+            Console.WriteLine();
             Console.Write("Choose an option: ");
+        }
+
+        private static void PrintOption(string key, string label)
+        {
+            ConsoleTheme.Write($"  {key}) ", ConsoleColor.Cyan);
+            Console.WriteLine(label);
         }
 
         private void HandleAddJob()
@@ -75,18 +106,44 @@ namespace MenuApp
             Console.Write("Options/notes (optional, press Enter to skip): ");
             string notes = Console.ReadLine() ?? "";
 
-            var job = new Job(input, output, new JobOptions { Notes = notes });
-            _jobs.Add(job);
+            double estimateMs = ReadEstimateMs();
+
+            var job = new Job(input, output, new JobOptions
+            {
+                Notes = notes,
+                Estimate = estimateMs
+            });
+
             _queue.AddJob(job);
 
-            Console.WriteLine($"Job {job.Id} added and queued.");
+            ConsoleTheme.Success($"Job {job.Id} queued (~{estimateMs / 1000:0.#}s).");
+        }
+
+        private static double ReadEstimateMs()
+        {
+            const double defaultSeconds = 5;
+
+            while (true)
+            {
+                Console.Write($"Estimated duration in seconds (Enter for {defaultSeconds:0.#}): ");
+                string raw = (Console.ReadLine() ?? "").Trim();
+
+                if (raw.Length == 0)
+                    return defaultSeconds * 1000;
+
+                if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) &&
+                    seconds > 0)
+                {
+                    return seconds * 1000;
+                }
+
+                ConsoleTheme.Error("Enter a positive number of seconds.");
+            }
         }
 
         private void HandleMonitor()
         {
-            // TODO: replace with a live-refreshing progress screen
-            Console.WriteLine("-- Monitor (placeholder, showing a snapshot) --");
-            HandleList();
+            new JobMonitor(_queue).Start();
         }
 
         private void HandleCancelOne()
@@ -94,35 +151,47 @@ namespace MenuApp
             // TODO: wire up real cancel logic (queued vs running)
             Console.Write("Job id to cancel: ");
             string? idInput = Console.ReadLine();
-            Console.WriteLine($"Cancel requested for job {idInput} (not implemented yet).");
+            ConsoleTheme.Warning($"Cancel requested for job {idInput} (not implemented yet).");
         }
 
         private void HandleCancelAll()
         {
             // TODO: wire up real CancelAll logic once cancel branches merge
-            Console.WriteLine("Cancel all requested (not implemented yet).");
+            ConsoleTheme.Warning("Cancel all requested (not implemented yet).");
         }
 
         private void HandleList()
         {
-            if (_jobs.Count == 0)
+            var jobs = _queue.Snapshot();
+
+            if (jobs.Count == 0)
             {
-                Console.WriteLine("No jobs yet.");
+                ConsoleTheme.Muted("No jobs yet.");
                 return;
             }
 
-            foreach (var job in _jobs)
+            ConsoleTheme.Header("Jobs");
+            Console.WriteLine();
+
+            foreach (var job in jobs)
             {
-                Console.WriteLine(
-                    $"[{job.Id}] {job.InputPath} -> {job.OutputPath} | {job.Status} | {job.ProgressPercent}% | Notes: {job.Options.Notes}");
+                ConsoleTheme.Write($"  {job.Status,-10}", ConsoleTheme.ColorFor(job.Status));
+                Console.Write($" {job.ProgressPercent,3}%  ");
+                Console.Write($"{job.InputPath} -> {job.OutputPath}");
+
+                if (!string.IsNullOrWhiteSpace(job.Options.Notes))
+                    ConsoleTheme.Write($"  ({job.Options.Notes})", ConsoleColor.DarkGray);
+
+                Console.WriteLine();
+                ConsoleTheme.Muted($"             {job.Id}");
             }
         }
 
         private void HandleWait()
         {
-            // Right now JobQueue.RunAll() is synchronous, so there's nothing
-            // to "wait" on yet - this is a placeholder for that behavior.
-            Console.WriteLine("Waiting for jobs... (placeholder - queue currently runs synchronously)");
+            ConsoleTheme.Muted("Waiting for all queued/running jobs to finish...");
+            _queue.WaitForIdle();
+            ConsoleTheme.Success("All jobs finished.");
         }
     }
 }

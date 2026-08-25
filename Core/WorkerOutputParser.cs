@@ -15,8 +15,6 @@ namespace Core
                 if (line == null)
                     continue;
 
-                Console.WriteLine($"[{job.Id}] {line}");
-
                 ParseLine(line, job);
             }
 
