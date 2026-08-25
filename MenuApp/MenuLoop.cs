@@ -156,35 +156,10 @@ namespace MenuApp
                 return;
             }
 
-            HandleList();
-            Console.WriteLine();
-            Console.Write("Job id to cancel (full id or first characters): ");
+            var job = JobPicker.Select(jobs, "Select a job to cancel");
 
-            string raw = (Console.ReadLine() ?? "").Trim();
-
-            if (raw.Length == 0)
-            {
-                ConsoleTheme.Error("No id entered.");
+            if (job == null)
                 return;
-            }
-
-            var matches = jobs
-                .Where(j => j.Id.ToString().StartsWith(raw, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (matches.Count == 0)
-            {
-                ConsoleTheme.Error($"No job matches \"{raw}\".");
-                return;
-            }
-
-            if (matches.Count > 1)
-            {
-                ConsoleTheme.Error($"\"{raw}\" matches {matches.Count} jobs, type more characters.");
-                return;
-            }
-
-            var job = matches[0];
 
             switch (_queue.CancelJob(job.Id))
             {
