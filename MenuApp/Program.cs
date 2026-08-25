@@ -1,19 +1,28 @@
-﻿using Core;
+﻿using MenuApp;
+using Core;
 
 namespace MenuApp
 {
     internal class Program
     {
-        // add your worker.exe path here
-        const string WORKERPATH = "\"C:\\Users\\harut\\OneDrive\\Desktop\\folder\\projects\\ameria\\console\\TechGen-MediaConverter\\Worker\\bin\\Debug\\net8.0\\Worker.exe\"";
-
         static void Main(string[] args)
         {
-            var queue = new JobQueue(WORKERPATH);
+            string workerPath = ResolveWorkerPath();
+
+            var queue = new JobQueue(workerPath, maxConcurrency: 3);
             queue.JobStarted += (job, process) => WorkerOutputParser.Parse(process, job);
+            queue.Start();
 
             var menu = new MenuLoop(queue);
             menu.Run();
+
+            static string ResolveWorkerPath()
+            {
+                var baseDir = AppContext.BaseDirectory;
+                var solutionDir = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
+                var exeName = OperatingSystem.IsWindows() ? "Worker.exe" : "Worker";
+                return Path.Combine(solutionDir, "Worker", "bin", "Debug", "net8.0", exeName);
+            }
         }
     }
 }
