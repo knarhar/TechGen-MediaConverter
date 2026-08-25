@@ -148,10 +148,34 @@ namespace MenuApp
 
         private void HandleCancelOne()
         {
-            // TODO: wire up real cancel logic (queued vs running)
-            Console.Write("Job id to cancel: ");
-            string? idInput = Console.ReadLine();
-            ConsoleTheme.Warning($"Cancel requested for job {idInput} (not implemented yet).");
+            var jobs = _queue.Snapshot();
+
+            if (jobs.Count == 0)
+            {
+                ConsoleTheme.Muted("No jobs yet.");
+                return;
+            }
+
+            var job = JobPicker.Select(jobs, "Select a job to cancel");
+
+            if (job == null)
+                return;
+
+            switch (_queue.CancelJob(job.Id))
+            {
+                case CancelResult.CanceledQueued:
+                    ConsoleTheme.Success($"Job {job.Id} canceled before it started.");
+                    break;
+                case CancelResult.CanceledRunning:
+                    ConsoleTheme.Success($"Job {job.Id} was running - worker process killed.");
+                    break;
+                case CancelResult.AlreadyFinished:
+                    ConsoleTheme.Warning($"Job {job.Id} already finished ({job.Status}).");
+                    break;
+                case CancelResult.NotFound:
+                    ConsoleTheme.Error($"Job {job.Id} not found.");
+                    break;
+            }
         }
 
         private void HandleCancelAll()
