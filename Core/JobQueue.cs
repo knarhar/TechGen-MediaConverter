@@ -74,6 +74,20 @@ namespace Core
             return CancelResult.CanceledRunning;
         }
 
+        public List<(Job Job, CancelResult Result)> CancelAll()
+        {
+            var jobs = Snapshot();
+            var results = new List<(Job, CancelResult)>();
+
+            foreach (var job in jobs)
+            {
+                var result = CancelJob(job.Id);
+                results.Add((job, result));
+            }
+
+            return results;
+        }
+
         private static void KillProcess(Process? process)
         {
             if (process == null)
